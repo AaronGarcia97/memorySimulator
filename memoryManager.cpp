@@ -31,7 +31,6 @@ int tStamp;               // Holds current cirtual tStamp
 
 queue<int> paginasDispM;  // Holds available pages for use in Real Memory
 queue<int> paginasDispS;  // Holds available pages for use in Reserve
-queue<int> fifoQueue;     // Queue that stores
 
 vector<int> M;            // Real Memory
 vector<int> S;            // Reserve Memory
@@ -152,6 +151,15 @@ int getSSizeAvailable(){
 }
 
 /*
+ Returns size of process in bytes.
+ Since we init memory with PAGE_SIZE and decrement it if we insert process,
+ we need to return the difference of PAGE_SIZE - remainingBytes of Page.
+*/
+int getUsedBytesOfPage(int& pageIndex){
+  return PAGE_SIZE - M[pageIndex];
+}
+
+/*
   Returns which PID you should remove in FIFO technique.
   Iterate through every PID which is in Real Memory
   and return the one with lowest timeStamp.
@@ -179,11 +187,22 @@ int getPIDtoRemoveFIFO(){
 }
 
 /*
+  Function which loads a process into Reserve memory. Similar to loadProcess()
+  function in this same doc.
+*/
+int sendToReserve(int &pid, int &n){
+  //loadProcess but to reserve instead of real memory
+  cout << "Size of process(PID=" << pid << ") to be removed: " << n << "." << endl;
+  return 1;
+}
+
+/*
   Function which fressSpace using FIFO technique,
   First In First Out...
 */
 int freeSpaceFIFO(){
   int pidToRemove = getPIDtoRemoveFIFO();
+  int sizeOfProcessToRemove = 0;
   // We makeing bad assumption taht pid returned is that of a process who exists
   ProcessInfo *pi = tablaMem[pidToRemove];
 
@@ -194,12 +213,20 @@ int freeSpaceFIFO(){
   // to queue of available memory
   cout << "Freeing pages: ";
   for( int i = 0; i < pi->pagesUsed.size(); i++ ) {
-    int page = pi->pagesUsed[i];
+    int pageIndex = pi->pagesUsed[i];
     // VERIFY IF WE NEED TO ORDER PAGES FROM MIN TO MAX
-    // SEND THIS PROCESS TO RESERVE, IMPLEMENT COUNT BYTES METHOD
-    paginasDispM.push(page);
-    cout << page << " ";
+    // Get bytes of process to be sent to Reserve
+    sizeOfProcessToRemove += getUsedBytesOfPage(pageIndex);
+    // Give back memory of that page
+    M[pageIndex] = REAL_SIZE;
+    // Add it to available memory pages queue
+    paginasDispM.push(pageIndex);
+    cout << pageIndex << " ";
   }
+
+  // SEND pidToRemove process to reserve
+  sendToReserve(pidToRemove, sizeOfProcessToRemove);
+
   cout << "\nProcess: " << pidToRemove << " succesfully removed." << endl;
 
   // Erase entry from that process
@@ -263,7 +290,7 @@ int loadProcess(int &n, int &pid){
 
     pi->pagesUsed.push_back(pageNum);
 
-    if( i+1 == pagesNeeded ) {
+    if( i+1 == pagesNeeded && n%PAGE_SIZE != 0) {
       // If is last page used, take only required bytes
       int lastBytesOfInfo = n%PAGE_SIZE;
       M[pageNum] -= lastBytesOfInfo;
