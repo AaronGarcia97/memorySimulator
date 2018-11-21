@@ -27,9 +27,11 @@ using namespace std;
 int swapIns;              // Holds the count of every swapIn
 int swapOuts;             // Holds count of every swapOut
 int pageFaults;           // Holds count of every pageFault
+int tStamp;               // Holds current cirtual tStamp
 
 queue<int> paginasDispM;  // Holds available pages for use in Real Memory
 queue<int> paginasDispS;  // Holds available pages for use in Reserve
+queue<int> fifoQueue;     // Queue that stores
 
 vector<int> M;            // Real Memory
 vector<int> S;            // Reserve Memory
@@ -57,7 +59,7 @@ class ProcessInfo{
     }
 
     void printProcessInfo(){
-      cout << "PID: " << this->pid << endl;
+      cout << "Process (PID=" << this->pid << ") info: "  << endl;
       cout << "\tRef Bit: " << this->bitRef << endl;
       cout << "\tTimestamp: " << this->timeStamp << endl;
       cout << "\tPage Faults: " << this->pageFaults << endl;
@@ -91,7 +93,7 @@ void init(){
 
   // Initialize global variables to 0
   cout << "Variables..." << endl;
-  swapIns = swapOuts = pageFaults = 0;
+  swapIns = swapOuts = pageFaults = tStamp = 0;
   cout << "DONE..." << endl;
 
 
@@ -149,11 +151,69 @@ int getSSizeAvailable(){
   return paginasDispS.size() * PAGE_SIZE;
 }
 
+/*
+  Returns which PID you should remove in FIFO technique.
+  Iterate through every PID which is in Real Memory
+  and return the one with lowest timeStamp.
+  (((Inefficient method)))
+*/
+int getPIDtoRemoveFIFO(){
 
-/* Function which loads process into realMemory
-   Receives:
-    n = size in bytes
-    pid = process ID
+  unordered_map<int, ProcessInfo*>::iterator itr = tablaMem.begin();
+  int pidMinTimestamp = NULL;
+
+  while( itr != tablaMem.end() ){
+    ProcessInfo *pi = itr->second;
+    if( pi->bitRef == 0 ) { //If process is in real memory
+      if( pidMinTimestamp == NULL ) pidMinTimestamp = pi->pid;
+      else if( pi->pid < pidMinTimestamp ){
+        // Get PID of min timestamp
+        pidMinTimestamp = pi->pid;
+
+      }
+    }
+    ++itr;
+  }
+
+  return pidMinTimestamp;
+}
+
+/*
+  Function which fressSpace using FIFO technique,
+  First In First Out...
+*/
+int freeSpaceFIFO(){
+  int pidToRemove = getPIDtoRemoveFIFO();
+  // We makeing bad assumption taht pid returned is that of a process who exists
+  ProcessInfo *pi = tablaMem[pidToRemove];
+
+  cout << "Removing process " << pidToRemove << endl;
+  pi->printProcessInfo();
+
+  // For every page used for that process add it back
+  // to queue of available memory
+  cout << "Freeing pages: ";
+  for( int i = 0; i < pi->pagesUsed.size(); i++ ) {
+    int page = pi->pagesUsed[i];
+    // VERIFY IF WE NEED TO ORDER PAGES FROM MIN TO MAX
+    // SEND THIS PROCESS TO RESERVE, IMPLEMENT COUNT BYTES METHOD
+    paginasDispM.push(page);
+    cout << page << " ";
+  }
+  cout << "\nProcess: " << pidToRemove << " succesfully removed." << endl;
+
+  // Erase entry from that process
+  tablaMem.erase(pidToRemove);
+
+  // Erase entry of that process
+  return 1;
+}
+
+/*
+  Function which loads process into realMemory
+    Receives:
+      n = size in bytes
+      pid = process ID
    If process doesn't fit in realMemory, sends a process to Reserve
    Memory to free off space.
 */
@@ -172,7 +232,7 @@ int loadProcess(int &n, int &pid){
 
   while( n > sizeAvailable ) {
       // Free memory sending it to reserve
-      // freeSpace();
+      freeSpaceFIFO();
       // Get size updated
       sizeAvailable = getMSizeAvailable();
   }
@@ -184,7 +244,7 @@ int loadProcess(int &n, int &pid){
   cout << "\tPages needed: " << pagesNeeded << endl;
 
   // Initialize process info and create entry in memory
-  ProcessInfo *pi = new ProcessInfo(pid, 0, 0, 0);
+  ProcessInfo *pi = new ProcessInfo(pid, 0, tStamp, 0);
   tablaMem[pid] = pi;
 
   // Validate process was inserted
@@ -264,7 +324,12 @@ int main(int argc, char *argv[]){
       getline(cin, line);
       cout << "Loading comment..." << endl;
       break;
+
     }
+
+    // Increment by 1 global timestamp
+    tStamp++;
+    cout << "GLOBAL timestamp incremented to: " << tStamp << "." << endl;
 
 
   }while( action != 'E' );
