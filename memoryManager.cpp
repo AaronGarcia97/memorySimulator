@@ -18,15 +18,15 @@ using namespace std;
 #define RESERVE_SIZE 4096
 #endif
 
-int swapIns = 0;
-int swapOuts = 0;
-int pageFaults = 0;
+int swapIns;              // Holds the count of every swapIn
+int swapOuts;             // Holds count of every swapOut
+int pageFaults;           // Holds count of every pageFault
 
-queue<int> paginasDispM;
-queue<int> paginasDispS;
+queue<int> paginasDispM;  // Holds available pages for use in Real Memory
+queue<int> paginasDispS;  // Holds available pages for use in Reserve
 
-vector<int> M(REAL_SIZE, 16);
-vector<int> R(RESERVE_SIZE, 16);
+vector<int> M;            // Real Memory
+vector<int> S;            // Reserve Memory
 
 struct ProcessInfo{
   int pid;
@@ -44,13 +44,39 @@ struct ProcessInfo{
 
 };
 
-// Function that initializes every variables
+unordered_map<int, ProcessInfo> tablaMem;
+
+// Function that clears and initializes every variable
 void init(){
+  cout << "Initializing Stuff..." << endl;
+
+  // Initialize global variables to 0
+  cout << "Variables..." << endl;
+  swapIns = swapOuts = pageFaults = 0;
+  cout << "DONE..." << endl;
+
+
+  // Clearing vectors, and initializing them
+  cout << "Clearing and initing memory..." << endl;
+  M.clear();
+  M.reserve(REAL_SIZE);
+  M.assign(REAL_SIZE, PAGE_SIZE);
+  S.clear();
+  S.reserve(RESERVE_SIZE);
+  S.assign(RESERVE_SIZE, PAGE_SIZE);
+  cout << "DONE..." << endl;
+
+
+  // Emptying queues
+  cout << "Emptying queues..." << endl;
+  while( !paginasDispM.empty() ) paginasDispM.pop();
+  while( !paginasDispS.empty() ) paginasDispS.pop();
+  cout << "DONE..." << endl;
+
   int totalPages = REAL_SIZE/PAGE_SIZE;
 
-  cout << "Initializing Stuff... " << endl;
-
   // Add avaialable pages to queues
+  cout << "Filling queues..." << endl;
   // Real Memory
   for(int i = 0; i < totalPages; i++){
     paginasDispM.push(i);
@@ -62,10 +88,15 @@ void init(){
   for(int i = 0; i < totalPages; i++){
     paginasDispS.push(i);
   }
+  cout << "DONE..." << endl;
+
+  // Clearing map
+  cout << "Clearing map..." << endl;
+  tablaMem.clear();
+  cout << "DONE..." << endl;
 
 };
 
-unordered_map<int, ProcessInfo> tablaMem;
 
 int main(int argc, char *argv[]){
 
