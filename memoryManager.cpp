@@ -67,6 +67,18 @@ class ProcessInfo{
 
 unordered_map<int, ProcessInfo*> tablaMem;   // Table which will have info of each process
 
+// Function that destroys pointers to void memory leaks
+void destroyMapPointers(){
+  cout << "Destroying pointers..." << endl;
+  unordered_map<int, ProcessInfo*>::iterator itr = tablaMem.begin();
+  while( itr != tablaMem.end()){
+    ProcessInfo *pi = itr->second;
+    delete pi;
+    ++itr;
+  }
+  cout << "DONE..." << endl;
+}
+
 // Function that clears and initializes every variable
 void init(){
   cout << "Initializing Stuff..." << endl;
@@ -113,6 +125,7 @@ void init(){
 
   // Clearing map
   cout << "Clearing map..." << endl;
+  destroyMapPointers();
   tablaMem.clear();
   cout << "DONE..." << endl;
 
@@ -251,6 +264,8 @@ int main(int argc, char *argv[]){
   }while( action != 'E' );
 
   cout << "Program ends here..." << endl;
+  destroyMapPointers();
+  cout << "Goodbye :)" << endl;
 
   return 0;
 }
