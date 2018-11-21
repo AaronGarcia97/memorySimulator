@@ -25,6 +25,9 @@ int pageFaults = 0;
 queue<int> paginasDispM;
 queue<int> paginasDispS;
 
+vector<int> M(REAL_SIZE, 16);
+vector<int> R(RESERVE_SIZE, 16);
+
 struct ProcessInfo{
   int pid;
   bool bitRef;
@@ -41,14 +44,72 @@ struct ProcessInfo{
 
 };
 
+// Function that initializes every variables
+void init(){
+  int totalPages = REAL_SIZE/PAGE_SIZE;
+
+  cout << "Initializing Stuff... " << endl;
+
+  // Add avaialable pages to queues
+  // Real Memory
+  for(int i = 0; i < totalPages; i++){
+    paginasDispM.push(i);
+  }
+
+  totalPages = RESERVE_SIZE/PAGE_SIZE;
+
+  //Reserve memory
+  for(int i = 0; i < totalPages; i++){
+    paginasDispS.push(i);
+  }
+
+};
+
 unordered_map<int, ProcessInfo> tablaMem;
 
 int main(int argc, char *argv[]){
 
-  ProcessInfo *p = new ProcessInfo(1, 0, 0, 0);
-  cout << p->pid << " " << p->bitRef << " " << p->timeStamp << " " << p->pageFaults  << endl;
+  int n, pid, address, type;
+  string line = "";
+  char action = 'E';
 
-  cout << PAGE_SIZE << " " << REAL_SIZE << " " << RESERVE_SIZE << endl;
+  init();
+
+  cout << "Memory sizes (bytes): " << endl;
+  cout << "Page\tReal\tReserve" << endl;
+  cout << PAGE_SIZE << '\t' << REAL_SIZE << '\t' << RESERVE_SIZE << endl;
+
+  do{
+
+    cin >> action;
+
+    switch(action) {
+
+    case 'P' :  // Loads process (P n p) => (action size pid)
+      cin >> n >> pid;
+      cout << "Loading process..." << endl;
+      break;
+
+    case 'A' :  // Access process (A d p m) => (action virtualAddress pid type)
+      cin >> address >> pid >> type;
+      cout << "Acessing process..." << endl;
+      break;
+
+    case 'L' :  // Free every page of process (L p) => (action pid)
+      cin >> pid;
+      cout << "Freeing process..." << endl;
+      break;
+
+    case 'C' :  // Comment line entered (C l) => (action lineComment)
+      getline(cin, line);
+      cout << "Loading comment..." << endl;
+      break;
+    }
+
+
+  }while( action != 'E' );
+
+  cout << "Program ends here..." << endl;
 
   return 0;
 }
