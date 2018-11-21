@@ -5,7 +5,13 @@
 
 using namespace std;
 
-// You can change this variables during compilation
+/* You can change these variables during compilation
+   for testing purposes, with following command:
+     Changing REAL_SIZE to 80:
+        g++ memoryManager.cpp -DREAL_SIZE=80 -o mem
+     Changing REAL_SIZE to 80 && RESERVE_SIZE to 160:
+        g++ memoryManager.cpp -DREAL_SIZE=80 -DRESERVE_SIZE=160 -o mem
+*/
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 16
 #endif
@@ -166,7 +172,7 @@ int loadProcess(int &n, int &pid){
 
   while( n > sizeAvailable ) {
       // Free memory sending it to reserve
-      // freeProcessLRUorFIFO()
+      // freeSpace();
       // Get size updated
       sizeAvailable = getMSizeAvailable();
   }
