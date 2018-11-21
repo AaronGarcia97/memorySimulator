@@ -64,7 +64,10 @@ class ProcessInfo{
       cout << "\tPage Faults: " << this->pageFaults << endl;
       cout << "\tPages currently used(index): ";
       for( int i = 0; i < this->pagesUsed.size(); i++){
-        cout << pagesUsed[i] << " ";
+        cout << pagesUsed[i] << ":";
+        if( this->bitRef == 0 ) cout << M[pagesUsed[i]];
+        else cout << S[pagesUsed[i]];
+        cout << " ";
       }
       cout << endl;
     }
@@ -156,6 +159,7 @@ int getSSizeAvailable(){
  we need to return the difference of PAGE_SIZE - remainingBytes of Page.
 */
 int getUsedBytesOfPage(int& pageIndex){
+  cout << "pageIndex: " << pageIndex << " = " << M[pageIndex] << endl;
   return PAGE_SIZE - M[pageIndex];
 }
 
@@ -189,10 +193,63 @@ int getPIDtoRemoveFIFO(){
 /*
   Function which loads a process into Reserve memory. Similar to loadProcess()
   function in this same doc.
+  IMPLEMENT THIS METHOD NEXT
 */
 int sendToReserve(int &pid, int &n){
   //loadProcess but to reserve instead of real memory
   cout << "Size of process(PID=" << pid << ") to be removed: " << n << "." << endl;
+  int sizeAvailable = getSSizeAvailable();
+
+  if( n > sizeAvailable ) {
+    cout << "Not enough memory, can't save on Reserve." << endl;
+    return -1;
+  } else if( n == 0 ) {
+    cout << "A process with 0 size, can't exist." << endl;
+    return -1;
+  }
+
+  cout << "Moving process (PID=" << pid << ") to Reserve Memory..." << endl;
+
+  // If it arrives here, it means there's enough memory
+  ProcessInfo *pi = tablaMem[pid];
+  int pagesNeeded = ceil(double(n)/double(PAGE_SIZE));
+
+  // Clear past pages
+  pi->pagesUsed.clear();
+
+  // Allocate in Reserve Memory
+  // Iterate until pagesNeeded-1
+  cout << "Assigning pages(index): ";
+  for( int i = 0; i < pagesNeeded-1; i++) {
+    // Get next available memory location
+    int pageNum = paginasDispS.front();
+
+    // Add pageIndex to process info
+    pi->pagesUsed.push_back(pageNum);
+
+    // Indicate bytes used
+    S[pageNum] -= PAGE_SIZE;
+
+    paginasDispS.pop();
+
+    cout << pageNum << " ";
+  }
+  // Fill last memory location
+  int lastPage = paginasDispS.front();
+  int lastBytesUsed = n%PAGE_SIZE;
+  paginasDispS.pop();
+
+  cout << lastPage << endl;
+
+  // If its 0 it means it used whole page, else only bytes left
+  // If processSize = 17, it will subtract 1
+  // If processSize = 16 = page_size, then it will subtract page_size
+  if( lastBytesUsed == 0 ) S[pagesNeeded-1] -= PAGE_SIZE;
+  else S[pagesNeeded-1] -= lastBytesUsed;
+
+  // Make reference bit 1, telling that it's in Reserve Memory
+  pi->bitRef = 1;
+
   return 1;
 }
 
@@ -218,21 +275,23 @@ int freeSpaceFIFO(){
     // Get bytes of process to be sent to Reserve
     sizeOfProcessToRemove += getUsedBytesOfPage(pageIndex);
     // Give back memory of that page
-    M[pageIndex] = REAL_SIZE;
+    M[pageIndex] = PAGE_SIZE;
+    cout << pageIndex << " ";
     // Add it to available memory pages queue
     paginasDispM.push(pageIndex);
-    cout << pageIndex << " ";
   }
+  cout << endl;
 
   // SEND pidToRemove process to reserve
-  sendToReserve(pidToRemove, sizeOfProcessToRemove);
+  if (sendToReserve(pidToRemove, sizeOfProcessToRemove) > 0){
+    cout << "Process: " << pidToRemove << " succesfully sent to Reserve." << endl;
+  }
+  else {
+    // An error happened, erase process...
+    cout << "Process: " << pidToRemove << " wasn't sent to Reserve." << endl;
+    tablaMem.erase(pidToRemove);
+  }
 
-  cout << "\nProcess: " << pidToRemove << " succesfully removed." << endl;
-
-  // Erase entry from that process
-  tablaMem.erase(pidToRemove);
-
-  // Erase entry of that process
   return 1;
 }
 
@@ -257,11 +316,14 @@ int loadProcess(int &n, int &pid){
     return -1;
   }
 
+  cout << "QUEUE SIZE: " << paginasDispM.size() << endl;
+
   while( n > sizeAvailable ) {
       // Free memory sending it to reserve
       freeSpaceFIFO();
       // Get size updated
       sizeAvailable = getMSizeAvailable();
+      cout << "Real Memory Size Available: " << sizeAvailable << endl;
   }
 
   // Enough memory was freed
@@ -304,8 +366,9 @@ int loadProcess(int &n, int &pid){
     // Pop page used
     paginasDispM.pop();
   }
+  cout << endl;
 
-  cout << "\n\tProcess " << pid << " sucesfully inserted." << endl;
+  cout << "\tProcess " << pid << " sucesfully inserted." << endl;
   pi->printProcessInfo();
   return 1;
 
@@ -324,11 +387,10 @@ int main(int argc, char *argv[]){
   cout << PAGE_SIZE << '\t' << REAL_SIZE << '\t' << RESERVE_SIZE << endl;
 
   do{
-
+    cout << "---------------------------------------------------------" << endl;
     cin >> action;
 
     switch(action) {
-
     case 'P' :  // Loads process (P n p) => (action size pid)
       cin >> n >> pid;
       cout << "Loading process..." << endl;
