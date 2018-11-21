@@ -28,23 +28,44 @@ queue<int> paginasDispS;  // Holds available pages for use in Reserve
 vector<int> M;            // Real Memory
 vector<int> S;            // Reserve Memory
 
-struct ProcessInfo{
-  int pid;
-  bool bitRef;
-  int timeStamp, pageFaults;
-  vector <int> pagesUsed;
+class ProcessInfo{
 
-  //Dummy constructor, to test data
-  ProcessInfo(int _pid, bool _bitRef, int _timeStamp, int _pageFaults){
-    pid = _pid;
-    bitRef = _bitRef;
-    timeStamp = _timeStamp;
-    pageFaults = _pageFaults;
-  }
+  public:
+
+    int pid;
+    bool bitRef;
+    int timeStamp, pageFaults;
+    vector <int> pagesUsed;
+
+    // Empty default constructor
+    ProcessInfo(){
+
+    }
+
+    //Dummy constructor, to test data
+    ProcessInfo(int pid, bool bitRef, int timeStamp, int pageFaults){
+      this->pid = pid;
+      this->bitRef = bitRef;
+      this->timeStamp = timeStamp;
+      this->pageFaults = pageFaults;
+    }
+
+    void printProcessInfo(){
+      cout << "PID: " << this->pid << endl;
+      cout << "\tRef Bit: " << this->bitRef << endl;
+      cout << "\tTimestamp: " << this->timeStamp << endl;
+      cout << "\tPage Faults: " << this->pageFaults << endl;
+      cout << "\tPages currently used(index): ";
+      for( int i = 0; i < this->pagesUsed.size(); i++){
+        cout << pagesUsed[i] << " ";
+      }
+      cout << endl;
+    }
 
 };
 
-unordered_map<int, ProcessInfo> tablaMem;
+
+unordered_map<int, ProcessInfo*> tablaMem;   // Table which will have info of each process
 
 // Function that clears and initializes every variable
 void init(){
@@ -98,6 +119,92 @@ void init(){
 };
 
 
+// Returns size available in Real Memory
+int getMSizeAvailable(){
+  return paginasDispM.size() * PAGE_SIZE;
+}
+
+
+// Returns size available in Reserve Memory
+int getSSizeAvailable(){
+  return paginasDispS.size() * PAGE_SIZE;
+}
+
+
+/* Function which loads process into realMemory
+   Receives:
+    n = size in bytes
+    pid = process ID
+   If process doesn't fit in realMemory, sends a process to Reserve
+   Memory to free off space.
+*/
+int loadProcess(int &n, int &pid){
+  int sizeAvailable = getMSizeAvailable();
+
+  if( n > REAL_SIZE ) {
+    cout << "\tCan't allocate more memory than " << REAL_SIZE << " bytes..." << endl;
+    return -1;
+  }
+
+  if( n < 1 ) {
+    cout << "\tCan't allocates less than 1 bytes..." << endl;
+    return -1;
+  }
+
+  while( n > sizeAvailable ) {
+      // Free memory sending it to reserve
+      // freeProcessLRUorFIFO()
+      // Get size updated
+      sizeAvailable = getMSizeAvailable();
+  }
+
+  // Enough memory was freed
+  // Load process into real memory
+  double tmp = double(n)/double(PAGE_SIZE);
+  int pagesNeeded = ceil(tmp);
+  cout << "\tPages needed: " << pagesNeeded << endl;
+
+  // Initialize process info and create entry in memory
+  ProcessInfo *pi = new ProcessInfo(pid, 0, 0, 0);
+  tablaMem[pid] = pi;
+
+  // Validate process was inserted
+  if (tablaMem.find(pid) == tablaMem.end()){
+    cout << "\tProcess insertion failed..." << endl;
+    return -1;
+  }
+
+  // Get ProcessInfo pointer we are working with
+  pi = tablaMem[pid];
+
+  // Fill amount of bytes used and which pages the process uses
+  cout << "\tPages Assigned(index): ";
+  for(int i = 0; i < pagesNeeded; i++){
+    int pageNum = paginasDispM.front();
+
+    pi->pagesUsed.push_back(pageNum);
+
+    if( i+1 == pagesNeeded ) {
+      // If is last page used, take only required bytes
+      int lastBytesOfInfo = n%PAGE_SIZE;
+      M[pageNum] -= lastBytesOfInfo;
+    } else {
+      // If is not last page, take the whole page
+      M[pageNum] -= PAGE_SIZE;
+    }
+
+    cout << pageNum << " ";
+
+    // Pop page used
+    paginasDispM.pop();
+  }
+
+  cout << "\n\tProcess " << pid << " sucesfully inserted." << endl;
+  pi->printProcessInfo();
+  return 1;
+
+}
+
 int main(int argc, char *argv[]){
 
   int n, pid, address, type;
@@ -119,6 +226,9 @@ int main(int argc, char *argv[]){
     case 'P' :  // Loads process (P n p) => (action size pid)
       cin >> n >> pid;
       cout << "Loading process..." << endl;
+      cout << action << " " << n << " " << pid << endl;
+      cout << "Assign " << n << " bytes to process " << pid << "." << endl;
+      loadProcess(n, pid);
       break;
 
     case 'A' :  // Access process (A d p m) => (action virtualAddress pid type)
