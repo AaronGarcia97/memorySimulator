@@ -375,7 +375,7 @@ int loadProcess(int &n, int &pid){
 }
 
 /*
-  Function which receives pid and address, and prints virtual memory
+  Function which receives process and address, and prints virtual memory
   address and real memory address.
 */
 int showAddresses(int &address, ProcessInfo* &process){
@@ -394,6 +394,17 @@ int showAddresses(int &address, ProcessInfo* &process){
 
   return 1;
 
+}
+
+/*
+  Function which receives process to be sent from Reserve to Real Memory
+*/
+int sendProcessToMemory(ProcessInfo* &process){
+
+
+
+  // Change this to 1 when done
+  return -1;
 }
 
 /*
@@ -421,9 +432,7 @@ int accessProcess(int &address, int &pid){
   } else { // Reserve
 
     cout << "Process(PID=" << pid << ") is in RESERVE Memory" << endl;
-    // send process from reserve to real memory
-    // sendProcessToMemory(pid);
-    // showAddresses(address, pid);
+    if( sendProcessToMemory(process) ) showAddresses(address, process);
 
   }
 
