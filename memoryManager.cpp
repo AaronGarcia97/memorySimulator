@@ -374,6 +374,63 @@ int loadProcess(int &n, int &pid){
 
 }
 
+/*
+  Function which receives pid and address, and prints virtual memory
+  address and real memory address.
+*/
+int showAddresses(int &address, int &pid){
+
+  int realAddress;
+  int virtualAddress;
+
+  ProcessInfo *process = tablaMem[pid];
+
+  // Gets you page in which address is located on its own virtual memory
+  virtualAddress = address / PAGE_SIZE;
+
+  // Gives you page in which address is located on real memory
+  realAddress = process->pagesUsed[virtualAddress];
+
+  cout << "Virtual address: " << virtualAddress << "." << endl;
+  cout << "Real Memory address: " << realAddress << "." << endl;
+
+  return 1;
+
+}
+
+/*
+  Function which receives an address to be accessed and a pid of a process,
+  whose address is going to be accessed.
+*/
+int accessProcess(int &address, int &pid){
+
+  // Check that process is in memory
+  if( tablaMem.find(pid) == tablaMem.end() ){
+    cout << "Process(PID=" << pid << ") doesn't exist." << endl;
+    return -1;
+  }
+
+
+  ProcessInfo *process = tablaMem[pid];
+  int bitRef = process->bitRef;
+
+  // Check if process is in Reserve or Real memory
+  if( bitRef == 0 ){ // Real
+
+    cout << "Process(PID=" << pid << ") is in REAL Memory" << endl;
+    showAddresses(address, pid);
+
+  } else { // Reserve
+
+    cout << "Process(PID=" << pid << ") is in RESERVE Memory" << endl;
+    // send process to real memory
+    // showAddresses(address, pid);
+
+  }
+
+  return 1;
+}
+
 int main(int argc, char *argv[]){
 
   int n, pid, address, type;
@@ -402,6 +459,7 @@ int main(int argc, char *argv[]){
     case 'A' :  // Access process (A d p m) => (action virtualAddress pid type)
       cin >> address >> pid >> type;
       cout << "Acessing process..." << endl;
+      accessProcess(address, pid);
       break;
 
     case 'L' :  // Free every page of process (L p) => (action pid)
