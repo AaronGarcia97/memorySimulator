@@ -416,13 +416,21 @@ int accessProcess(int &address, int &pid){
   if( bitRef == 0 ){ // Real
 
     cout << "Process(PID=" << pid << ") is in REAL Memory" << endl;
+<<<<<<< HEAD
     showAddresses(address, process);
+=======
+    showAddresses(address, pid);
+>>>>>>> 728634e0fafc5c3a787ec6c382329a9d90040658
 
   } else { // Reserve
 
     cout << "Process(PID=" << pid << ") is in RESERVE Memory" << endl;
+<<<<<<< HEAD
     // send process from reserve to real memory
     //sendProcessToMemory(pid);
+=======
+    // send process to real memory
+>>>>>>> 728634e0fafc5c3a787ec6c382329a9d90040658
     // showAddresses(address, pid);
 
   }
