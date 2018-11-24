@@ -289,6 +289,7 @@ int freeSpaceFIFO(){
   // SEND pidToRemove process to reserve
   if ( sendToReserve(pidToRemove, sizeOfProcessToRemove) > 0 ){
     cout << "Process: " << pidToRemove << " succesfully sent to Reserve." << endl;
+    swapOuts++;
   }
   else {
     // An error happened, erase process...
@@ -341,6 +342,7 @@ int liberateReserveProcess(ProcessInfo* &process){
 */
 int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
   int sizeAvailable = getMSizeAvailable();
+  int amountOfPageFaults = 0;
 
   // Validates that process is not bigger than memory's size
   if( n > REAL_SIZE ) {
@@ -364,7 +366,11 @@ int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
 
   while( n > sizeAvailable ) {
       // Free memory sending it to reserve
-      freeSpaceFIFO();
+      // Take account of pageFaults that happened during this
+      // Only if process is being loaded for first time
+      if ( freeSpaceFIFO() > 0  && !isSendingToMemoryFromReserve ) {
+        amountOfPageFaults++;
+      }
       // Get size updated
       sizeAvailable = getMSizeAvailable();
       cout << "Real Memory Size Available: " << sizeAvailable << endl;
@@ -426,6 +432,11 @@ int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
 
   cout << "\tProcess " << pid << " sucesfully inserted." << endl;
   pi->printProcessInfo();
+
+  // Add page faults to process, if it has
+  pi->pageFaults += amountOfPageFaults;
+  pageFaults += amountOfPageFaults;
+
   return 1;
 
 }
@@ -501,7 +512,14 @@ int accessProcess(int &address, int &pid){
   } else { // Reserve
 
     cout << "Process(PID=" << pid << ") is in RESERVE Memory" << endl;
-    if( sendProcessToMemory(process) > 0 ) showAddresses(address, process);
+    if( sendProcessToMemory(process) > 0 ) {
+      showAddresses(address, process);
+      // Since process was swappedIn succesfully, we increment swapIn
+      // and pageFault, both local and global
+      process->pageFaults++;
+      swapIns++;
+      pagesFaults++;
+    }
 
   }
 
