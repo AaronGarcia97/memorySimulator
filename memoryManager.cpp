@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <queue>
+#include <string>
 
 using namespace std;
 
@@ -24,6 +25,10 @@ using namespace std;
 #define RESERVE_SIZE 4096
 #endif
 
+#ifndef TECHNIQUE
+#define TECHNIQUE "FIFO"
+#endif
+
 int swapIns;              // Holds the count of every swapIn
 int swapOuts;             // Holds count of every swapOut
 int pageFaults;           // Holds count of every pageFault
@@ -41,7 +46,7 @@ class ProcessInfo{
 
     int pid;
     bool bitRef;
-    int timeStamp, pageFaults;
+    int timeStamp, pageFaults, timeStampLRU;
     vector <int> pagesUsed;
 
     // Empty default constructor
@@ -50,17 +55,19 @@ class ProcessInfo{
     }
 
     //Dummy constructor, to test data
-    ProcessInfo(int pid, bool bitRef, int timeStamp, int pageFaults){
+    ProcessInfo(int pid, bool bitRef, int timeStamp, int pageFaults, int timeStampLRU){
       this->pid = pid;
       this->bitRef = bitRef;
       this->timeStamp = timeStamp;
+      this->timeStampLRU = timeStampLRU;
       this->pageFaults = pageFaults;
     }
 
     void printProcessInfo(){
       cout << "Process (PID=" << this->pid << ") info: "  << endl;
       cout << "\tRef Bit: " << this->bitRef << endl;
-      cout << "\tTimestamp: " << this->timeStamp << endl;
+      cout << "\tTimestampFIFO: " << this->timeStamp << endl;
+      cout << "\tTimestampLRU: " << this->timeStampLRU << endl;
       cout << "\tPage Faults: " << this->pageFaults << endl;
       cout << "\tPages currently used(index): ";
       for( int i = 0; i < this->pagesUsed.size(); i++){
@@ -169,18 +176,36 @@ int getUsedBytesOfPage(int& pageIndex){
   and return the one with lowest timeStamp.
   (((Inefficient method)))
 */
-int getPIDtoRemoveFIFO(){
+int getPIDtoRemove(string s){
 
+  if( s != "FIFO" || s != "LRU" ) {
+    cout << "Unexistent technique..." << endl;
+    return -1;
+  }
+
+  bool isFifo;
+  int actualProcessTimeStamp = 0;
+  int minTimeStamp = 0;
+  int pidMinTimestamp = -666;
   unordered_map<int, ProcessInfo*>::iterator itr = tablaMem.begin();
-  int pidMinTimestamp = NULL;
+
+  isFifo = (s == "FIFO") ? true : false;
 
   while( itr != tablaMem.end() ){
-    ProcessInfo *pi = itr->second;
-    if( pi->bitRef == 0 ) { //If process is in real memory
-      if( pidMinTimestamp == NULL ) pidMinTimestamp = pi->pid;
-      else if( pi->timeStamp < tablaMem[pidMinTimestamp]->timeStamp ){
+
+    ProcessInfo *process = itr->second;
+    actualProcessTimeStamp = (isFifo) ? process->timeStamp : process->timeStampLRU;
+
+    if( process->bitRef == 0 ) { //If process is in real memory
+
+      if( pidMinTimestamp != -666 )
+        minTimeStamp = isFifo ? tablaMem[pidMinTimestamp]->timeStamp : tablaMem[pidMinTimestamp]->timeStampLRU;
+
+      if( pidMinTimestamp == -666 ) pidMinTimestamp = process->pid;
+
+      else if( actualProcessTimeStamp < minTimeStamp ){
         // Get PID of min timestamp
-        pidMinTimestamp = pi->pid;
+        pidMinTimestamp = process->pid;
 
       }
     }
@@ -261,8 +286,14 @@ int sendToReserve(int &pid, int &n){
   Function which fressSpace using FIFO technique,
   First In First Out...
 */
-int freeSpaceFIFO(){
-  int pidToRemove = getPIDtoRemoveFIFO();
+int freeSpace(string technique){
+
+  if( technique != "FIFO" || technique != "LRU" ) {
+    cout << "Unexistent technique..." << endl;
+    return -1;
+  }
+
+  int pidToRemove = getPIDtoRemove(technique);
   int sizeOfProcessToRemove = 0;
   // We makeing bad assumption taht pid returned is that of a process who exists
   ProcessInfo *pi = tablaMem[pidToRemove];
@@ -377,7 +408,7 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
       // Free memory sending it to reserve
       // Take account of pageFaults that happened during this
       // Only if process is being loaded for first time
-      if ( freeSpaceFIFO() > 0  && !isSendingFromReserveToMemory ) {
+      if ( freeSpace(TECHNIQUE) > 0  && !isSendingFromReserveToMemory ) {
         amountOfPageFaults++;
       }
       // Get size updated
@@ -396,7 +427,7 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   // Initialize process info and create entry in memory
   if( !isSendingFromReserveToMemory ) { // If process doesn't exist already
 
-    pi = new ProcessInfo(pid, 0, tStamp, 0);
+    pi = new ProcessInfo(pid, 0, tStamp, 0, tStamp);
     tablaMem[pid] = pi;
 
     // Validate process was inserted
@@ -493,9 +524,11 @@ int sendProcessToMemory(ProcessInfo* &process){
   size = getUsedBytesOfProcess(process);
 
   if ( loadProcess(size, process->pid, true) > 0 ) { //Means process was sent succesfully to memory
+
     // Update timestamp of process
     process->timeStamp = tStamp;
     return 1;
+
   } else {
     return -1;
   }
@@ -596,10 +629,12 @@ int liberateProcess(int &pid) {
   int bitRef = process->bitRef;
 
   if ( bitRef == 0 ) { // Process is in Real Memory
-    liberateRealMemoryProcess(process);
+    return liberateRealMemoryProcess(process);
   } else {             // Process is in Reserve Memory
-    liberateReserveProcess(process);
+    return liberateReserveProcess(process);
   }
+
+  return -1;
 
 }
 
@@ -608,6 +643,8 @@ int main(int argc, char *argv[]){
   int n, pid, address, type;
   string line = "";
   char action = 'E';
+
+  cout << "Technique used: " << TECHNIQUE << endl;
 
   init();
 
