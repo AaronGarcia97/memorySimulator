@@ -349,7 +349,7 @@ int liberateReserveProcess(ProcessInfo* &process){
    If process doesn't fit in realMemory, sends a process to Reserve
    Memory to free off space.
 */
-int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
+int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   int sizeAvailable = getMSizeAvailable();
   int amountOfPageFaults = 0;
 
@@ -366,7 +366,7 @@ int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
   }
 
   // Validate that pid doesn't exist yet
-  if( tablaMem.find(pid) != tablaMem.end() && !isSendingToMemoryFromReserve ) {
+  if( tablaMem.find(pid) != tablaMem.end() && !isSendingFromReserveToMemory ) {
     cout << "\tProcess with PID=" << pid << " already exists..." << endl;
     return -1;
   }
@@ -377,7 +377,7 @@ int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
       // Free memory sending it to reserve
       // Take account of pageFaults that happened during this
       // Only if process is being loaded for first time
-      if ( freeSpaceFIFO() > 0  && !isSendingToMemoryFromReserve ) {
+      if ( freeSpaceFIFO() > 0  && !isSendingFromReserveToMemory ) {
         amountOfPageFaults++;
       }
       // Get size updated
@@ -394,7 +394,7 @@ int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
   ProcessInfo *pi;
 
   // Initialize process info and create entry in memory
-  if( !isSendingToMemoryFromReserve ) { // If process doesn't exist already
+  if( !isSendingFromReserveToMemory ) { // If process doesn't exist already
 
     pi = new ProcessInfo(pid, 0, tStamp, 0);
     tablaMem[pid] = pi;
@@ -411,7 +411,7 @@ int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
   pi = tablaMem[pid];
 
   // Liberate pages from process from reserve, si falla, return error
-  if( isSendingToMemoryFromReserve ) {
+  if( isSendingFromReserveToMemory ) {
     if( liberateReserveProcess(pi) < 0 ) return -1;
     else pi->bitRef = 0;
   }
@@ -492,7 +492,15 @@ int sendProcessToMemory(ProcessInfo* &process){
 
   size = getUsedBytesOfProcess(process);
 
-  return loadProcess(size, process->pid, true);
+  if ( loadProcess(size, process->pid, true) > 0 ) { //Means process was sent succesfully to memory
+    // Update timestamp of process
+    process->timeStamp = tStamp;
+    return 1;
+  } else {
+    return -1;
+  }
+
+  return 1;
 
 }
 
