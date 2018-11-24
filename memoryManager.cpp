@@ -178,7 +178,7 @@ int getPIDtoRemoveFIFO(){
     ProcessInfo *pi = itr->second;
     if( pi->bitRef == 0 ) { //If process is in real memory
       if( pidMinTimestamp == NULL ) pidMinTimestamp = pi->pid;
-      else if( pi->pid < pidMinTimestamp ){
+      else if( pi->timeStamp < tablaMem[pidMinTimestamp]->timeStamp ){
         // Get PID of min timestamp
         pidMinTimestamp = pi->pid;
 
@@ -193,18 +193,18 @@ int getPIDtoRemoveFIFO(){
 /*
   Function which loads a process into Reserve memory. Similar to loadProcess()
   function in this same doc.
-  IMPLEMENT THIS METHOD NEXT
 */
 int sendToReserve(int &pid, int &n){
   //loadProcess but to reserve instead of real memory
   cout << "Size of process(PID=" << pid << ") to be removed: " << n << "." << endl;
   int sizeAvailable = getSSizeAvailable();
 
+  // Validations
   if( n > sizeAvailable ) {
     cout << "Not enough memory, can't save on Reserve." << endl;
     return -1;
-  } else if( n == 0 ) {
-    cout << "A process with 0 size, can't exist." << endl;
+  } else if( n < 1 ) {
+    cout << "A process with size less than 1, can't exist." << endl;
     return -1;
   }
 
@@ -239,13 +239,13 @@ int sendToReserve(int &pid, int &n){
   int lastBytesUsed = n%PAGE_SIZE;
   paginasDispS.pop();
 
-  cout << lastPage << endl;
+  cout << "Last page of process: " << lastPage << endl;
 
   // If its 0 it means it used whole page, else only bytes left
   // If processSize = 17, it will subtract 1
   // If processSize = 16 = page_size, then it will subtract page_size
-  if( lastBytesUsed == 0 ) S[pagesNeeded-1] -= PAGE_SIZE;
-  else S[pagesNeeded-1] -= lastBytesUsed;
+  if( lastBytesUsed == 0 ) S[lastPage] -= PAGE_SIZE;
+  else S[lastPage] -= lastBytesUsed;
 
   // Make reference bit 1, telling that it's in Reserve Memory
   pi->bitRef = 1;
@@ -271,7 +271,7 @@ int freeSpaceFIFO(){
   cout << "Freeing pages: ";
   for( int i = 0; i < pi->pagesUsed.size(); i++ ) {
     int pageIndex = pi->pagesUsed[i];
-    // VERIFY IF WE NEED TO ORDER PAGES FROM MIN TO MAX
+
     // Get bytes of process to be sent to Reserve
     sizeOfProcessToRemove += getUsedBytesOfPage(pageIndex);
     // Give back memory of that page
@@ -283,7 +283,7 @@ int freeSpaceFIFO(){
   cout << endl;
 
   // SEND pidToRemove process to reserve
-  if (sendToReserve(pidToRemove, sizeOfProcessToRemove) > 0){
+  if ( sendToReserve(pidToRemove, sizeOfProcessToRemove) > 0 ){
     cout << "Process: " << pidToRemove << " succesfully sent to Reserve." << endl;
   }
   else {
@@ -306,11 +306,13 @@ int freeSpaceFIFO(){
 int loadProcess(int &n, int &pid){
   int sizeAvailable = getMSizeAvailable();
 
+  // Validates that process is not bigger than memory's size
   if( n > REAL_SIZE ) {
     cout << "\tCan't allocate more memory than " << REAL_SIZE << " bytes..." << endl;
     return -1;
   }
 
+  // Validates that process is greater than 0 bytes
   if( n < 1 ) {
     cout << "\tCan't allocates less than 1 bytes..." << endl;
     return -1;
@@ -322,7 +324,7 @@ int loadProcess(int &n, int &pid){
     return -1;
   }
 
-  cout << "QUEUE SIZE: " << paginasDispM.size() << endl;
+  cout << "Pages available: " << paginasDispM.size() << endl;
 
   while( n > sizeAvailable ) {
       // Free memory sending it to reserve
