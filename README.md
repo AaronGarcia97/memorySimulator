@@ -1,19 +1,32 @@
 # memorySimulator
 
+## Wiki
+
 Example of how to run code with small test case:
 - Page Size = 16
 - Real Memory Size = 32
 - Reserve Memory Size = 4096
 
-NOTE:   
-  **P n p** == **loadProcess** of **nBytes** with **pid p**   
-  Also **-D** flag changes those variables during compilation time...
+NOTE:
+  **-D** flag changes those variables during compilation time...
+
+  **RUN WITH FIFO TECHNIQUE**
 ```
- g++ memoryManager.cpp -DPAGE_SIZE=16 -DREAL_SIZE=32 -o mem && ./mem
- P 16 1
- P 32 2
- P 8 3
+  g++ memoryManager.cpp -o fifo
+  ./fifo
 ```
+
+  **RUN WITH LRU TECHNIQUE**
+```
+  g++ memoryManager.cpp -DTECHNIQUE=\"LRU\" -o lru
+  ./lru
+```
+
+  **TESTING w Different Memory Values**
+```
+  g++ memoryManager.cpp -DPAGE_SIZE=16 -DREAL_SIZE=32 -o mem && ./mem
+```
+
 
 OUTPUT:
 ```
