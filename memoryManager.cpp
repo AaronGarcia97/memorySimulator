@@ -304,7 +304,7 @@ int freeSpaceFIFO(){
   Function that liberates pages of a process who is in Reserve Memory.
 */
 int liberateReserveProcess(ProcessInfo* &process){
-
+  double secondsPassed = 0;
   int bitRef = process->bitRef;
 
   // Validate process is in Reserve
@@ -315,19 +315,28 @@ int liberateReserveProcess(ProcessInfo* &process){
 
   int pagesUsedSize = process->pagesUsed.size();
 
-  cout << "Freeing pages from Process(PID=" << process->pid << ") in Reserve: " << endl;
+  cout << "Liberating pages from Process(PID=" << process->pid << ") in Reserve: " << endl;
 
   for( int i = pagesUsedSize-1; i >= 0; i-- ){
     int pageIndex = process->pagesUsed[i];
 
+    // Push page back to availablePages queue
     paginasDispS.push(pageIndex);
+
+    // Give bytes back
+    S[pageIndex] = PAGE_SIZE;
+
+    // Pop page from process vector pagesUsed
     process->pagesUsed.pop_back();
 
     cout << "\tPage (" << pageIndex << ") liberated." << endl;
+    secondsPassed += 0.1;
 
   }
 
-  cout << "Process (PID=" << process->pid << ") pages succesfully lbierated." << endl;
+  cout << "Process (PID=" << process->pid << ") pages succesfully liberated." << endl;
+  cout << "Total seconds elapsed: " << secondsPassed << endl;
+
   return 1;
 
 }
@@ -518,12 +527,72 @@ int accessProcess(int &address, int &pid){
       // and pageFault, both local and global
       process->pageFaults++;
       swapIns++;
-      pagesFaults++;
+      pageFaults++;
     }
 
   }
 
   return 1;
+}
+
+
+/*
+  Function which liberates the pages used by a process located in Real
+  Memory. Receives a Process Info pointer.
+*/
+int liberateRealMemoryProcess(ProcessInfo* &process){
+
+  int pagesSize = process->pagesUsed.size();
+  double secondsPassed = 0;
+
+  cout << "Liberating process(PID=" << process->pid << ") from Real Memory." << endl;
+
+  // For every page used for that process add it back
+  // to queue of available memory
+  for( int i = pagesSize-1; i >= 0; i-- ) {
+
+    int pageIndex = process->pagesUsed[i];
+
+    // Add it back to availablePages queue
+    paginasDispM.push(pageIndex);
+
+    // Give bytes back
+    M[pageIndex] = PAGE_SIZE;
+
+    // Pop page from process vector pagesUsed
+    process->pagesUsed.pop_back();
+
+    cout << "\tPage (" << pageIndex << ") liberated." << endl;
+    secondsPassed += 0.1;
+  }
+
+  cout << "Process (PID=" << process->pid << ") pages succesfully liberated." << endl;
+  cout << "Total seconds elapsed: " << secondsPassed << endl;
+
+  return 1;
+}
+
+/*
+  Function that liberates process with received pid, if is in reserve it
+  takes differente actions as if it was on Real Memory.
+*/
+int liberateProcess(int &pid) {
+
+  // Check that process is in memory
+  if( tablaMem.find(pid) == tablaMem.end() ){
+    cout << "Process(PID=" << pid << ") doesn't exist." << endl;
+    return -1;
+  }
+
+  ProcessInfo *process = tablaMem[pid];
+  int bitRef = process->bitRef;
+
+  if ( bitRef == 0 ) { // Process is in Real Memory
+    liberateRealMemoryProcess(process);
+  } else {             // Process is in Reserve Memory
+    liberateReserveProcess(process);
+  }
+
 }
 
 int main(int argc, char *argv[]){
@@ -560,6 +629,7 @@ int main(int argc, char *argv[]){
     case 'L' :  // Free every page of process (L p) => (action pid)
       cin >> pid;
       cout << "Freeing process..." << endl;
+      liberateProcess(pid);
       break;
 
     case 'C' :  // Comment line entered (C l) => (action lineComment)
