@@ -628,13 +628,13 @@ int main(int argc, char *argv[]){
 
     case 'L' :  // Free every page of process (L p) => (action pid)
       cin >> pid;
-      cout << "Freeing process..." << endl;
+      cout << "Liberating process..." << endl;
       liberateProcess(pid);
       break;
 
     case 'C' :  // Comment line entered (C l) => (action lineComment)
       getline(cin, line);
-      cout << "Loading comment..." << endl;
+      cout << "Comment(time=" << tStamp << "):" << line << endl;
       break;
 
     }
