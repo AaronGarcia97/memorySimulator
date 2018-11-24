@@ -316,6 +316,12 @@ int loadProcess(int &n, int &pid){
     return -1;
   }
 
+  // Validate that pid doesn't exist yet
+  if( tablaMem.find(pid) != tablaMem.end() ) {
+    cout << "\tProcess with PID=" << pid << " already exists..." << endl;
+    return -1;
+  }
+
   cout << "QUEUE SIZE: " << paginasDispM.size() << endl;
 
   while( n > sizeAvailable ) {
