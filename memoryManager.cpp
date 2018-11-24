@@ -234,6 +234,7 @@ int sendToReserve(int &pid, int &n){
 
     cout << pageNum << " ";
   }
+  cout << endl;
   // Fill last memory location
   int lastPage = paginasDispS.front();
   int lastBytesUsed = n%PAGE_SIZE;
@@ -246,6 +247,9 @@ int sendToReserve(int &pid, int &n){
   // If processSize = 16 = page_size, then it will subtract page_size
   if( lastBytesUsed == 0 ) S[lastPage] -= PAGE_SIZE;
   else S[lastPage] -= lastBytesUsed;
+
+  // Add pageIndex to process info
+  pi->pagesUsed.push_back(lastPage);
 
   // Make reference bit 1, telling that it's in Reserve Memory
   pi->bitRef = 1;
@@ -296,6 +300,38 @@ int freeSpaceFIFO(){
 }
 
 /*
+  Function that liberates pages of a process who is in Reserve Memory.
+*/
+int liberateReserveProcess(ProcessInfo* &process){
+
+  int bitRef = process->bitRef;
+
+  // Validate process is in Reserve
+  if( bitRef == 0 ) {
+    cout << "Process (PID=" << process->pid << ") is in Real Memory";
+    return -1;
+  }
+
+  int pagesUsedSize = process->pagesUsed.size();
+
+  cout << "Freeing pages from Process(PID=" << process->pid << ") in Reserve: " << endl;
+
+  for( int i = pagesUsedSize-1; i >= 0; i-- ){
+    int pageIndex = process->pagesUsed[i];
+
+    paginasDispS.push(pageIndex);
+    process->pagesUsed.pop_back();
+
+    cout << "\tPage (" << pageIndex << ") liberated." << endl;
+
+  }
+
+  cout << "Process (PID=" << process->pid << ") pages succesfully lbierated." << endl;
+  return 1;
+
+}
+
+/*
   Function which loads process into realMemory
     Receives:
       n = size in bytes
@@ -303,7 +339,7 @@ int freeSpaceFIFO(){
    If process doesn't fit in realMemory, sends a process to Reserve
    Memory to free off space.
 */
-int loadProcess(int &n, int &pid){
+int loadProcess(int &n, int &pid, bool isSendingToMemoryFromReserve){
   int sizeAvailable = getMSizeAvailable();
 
   // Validates that process is not bigger than memory's size
@@ -319,7 +355,7 @@ int loadProcess(int &n, int &pid){
   }
 
   // Validate that pid doesn't exist yet
-  if( tablaMem.find(pid) != tablaMem.end() ) {
+  if( tablaMem.find(pid) != tablaMem.end() && !isSendingToMemoryFromReserve ) {
     cout << "\tProcess with PID=" << pid << " already exists..." << endl;
     return -1;
   }
@@ -340,18 +376,30 @@ int loadProcess(int &n, int &pid){
   int pagesNeeded = ceil(tmp);
   cout << "\tPages needed: " << pagesNeeded << endl;
 
-  // Initialize process info and create entry in memory
-  ProcessInfo *pi = new ProcessInfo(pid, 0, tStamp, 0);
-  tablaMem[pid] = pi;
+  ProcessInfo *pi;
 
-  // Validate process was inserted
-  if (tablaMem.find(pid) == tablaMem.end()){
-    cout << "\tProcess insertion failed..." << endl;
-    return -1;
+  // Initialize process info and create entry in memory
+  if( !isSendingToMemoryFromReserve ) { // If process doesn't exist already
+
+    pi = new ProcessInfo(pid, 0, tStamp, 0);
+    tablaMem[pid] = pi;
+
+    // Validate process was inserted
+    if (tablaMem.find(pid) == tablaMem.end()){
+      cout << "\tProcess insertion failed..." << endl;
+      return -1;
+    }
+
   }
 
-  // Get ProcessInfo pointer we are working with
+  // Get Process pointer we are working with
   pi = tablaMem[pid];
+
+  // Liberate pages from process from reserve, si falla, return error
+  if( isSendingToMemoryFromReserve ) {
+    if( liberateReserveProcess(pi) < 0 ) return -1;
+    else pi->bitRef = 0;
+  }
 
   // Fill amount of bytes used and which pages the process uses
   cout << "\tPages Assigned(index): ";
@@ -404,15 +452,28 @@ int showAddresses(int &address, ProcessInfo* &process){
 
 }
 
+int getUsedBytesOfProcess(ProcessInfo* &process){
+
+  int size = 0;
+  int pagesUsedSize = process->pagesUsed.size();
+  int lastPage = process->pagesUsed[pagesUsedSize-1];
+
+  size += (pagesUsedSize - 1)*PAGE_SIZE + getUsedBytesOfPage(lastPage);
+
+  return size;
+}
+
 /*
   Function which receives process to be sent from Reserve to Real Memory
 */
 int sendProcessToMemory(ProcessInfo* &process){
 
+  int size = 0;
 
+  size = getUsedBytesOfProcess(process);
 
-  // Change this to 1 when done
-  return -1;
+  return loadProcess(size, process->pid, true);
+
 }
 
 /*
@@ -440,7 +501,7 @@ int accessProcess(int &address, int &pid){
   } else { // Reserve
 
     cout << "Process(PID=" << pid << ") is in RESERVE Memory" << endl;
-    if( sendProcessToMemory(process) ) showAddresses(address, process);
+    if( sendProcessToMemory(process) > 0 ) showAddresses(address, process);
 
   }
 
@@ -469,7 +530,7 @@ int main(int argc, char *argv[]){
       cout << "Loading process..." << endl;
       cout << action << " " << n << " " << pid << endl;
       cout << "Assign " << n << " bytes to process " << pid << "." << endl;
-      loadProcess(n, pid);
+      loadProcess(n, pid, false);
       break;
 
     case 'A' :  // Access process (A d p m) => (action virtualAddress pid type)
