@@ -40,6 +40,34 @@ queue<int> paginasDispS;  // Holds available pages for use in Reserve
 vector<int> M;            // Real Memory
 vector<int> S;            // Reserve Memory
 
+class ProcessStat{
+
+  public:
+    int turnaround;       // Liberated - created
+    int pageFaults;
+    int pid;
+    int processCreationTime;
+
+    ProcessStat(){
+      this->pid = -666;
+      this->turnaround = -666;
+      this->pageFaults = -666;
+      this->processCreationTime = -666;
+    }
+
+    ProcessStat(int pid, int processCreationTime){
+      this->pid = pid;
+      this->processCreationTime = processCreationTime;
+      this->turnaround = 0;
+      this->pageFaults = 0;
+    }
+
+    void printStats(){
+      cout << this->pid << "\t\t" << this->pageFaults << "\t\t" << this->turnaround << endl;
+    }
+
+};
+
 class ProcessInfo{
 
   public:
@@ -81,18 +109,27 @@ class ProcessInfo{
 
 };
 
-
+unordered_map<int ,ProcessStat*> logsMap;       // Table with info to be print at the end
 unordered_map<int, ProcessInfo*> tablaMem;   // Table which will have info of each process
 
 // Function that destroys pointers to void memory leaks
 void destroyMapPointers(){
   cout << "Destroying pointers..." << endl;
+
   unordered_map<int, ProcessInfo*>::iterator itr = tablaMem.begin();
   while( itr != tablaMem.end()){
     ProcessInfo *pi = itr->second;
     delete pi;
     ++itr;
   }
+
+  unordered_map<int, ProcessStat*>::iterator itr2 = logsMap.begin();
+  while( itr2 != logsMap.end()){
+    ProcessStat *pStat = itr2->second;
+    delete pStat;
+    ++itr;
+  }
+
   cout << "DONE..." << endl;
 }
 
@@ -141,9 +178,10 @@ void init(){
   cout << "DONE..." << endl;
 
   // Clearing map
-  cout << "Clearing map..." << endl;
+  cout << "Clearing maps..." << endl;
   destroyMapPointers();
   tablaMem.clear();
+  logsMap.clear();
   cout << "DONE..." << endl;
 
 };
@@ -178,7 +216,7 @@ int getUsedBytesOfPage(int& pageIndex){
 */
 int getPIDtoRemove(string s){
 
-  if( s != "FIFO" || s != "LRU" ) {
+  if( s != "FIFO" && s != "LRU" ) {
     cout << "Unexistent technique..." << endl;
     return -1;
   }
@@ -288,7 +326,7 @@ int sendToReserve(int &pid, int &n){
 */
 int freeSpace(string technique){
 
-  if( technique != "FIFO" || technique != "LRU" ) {
+  if( technique != "FIFO" && technique != "LRU" ) {
     cout << "Unexistent technique..." << endl;
     return -1;
   }
@@ -397,7 +435,7 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   }
 
   // Validate that pid doesn't exist yet
-  if( tablaMem.find(pid) != tablaMem.end() && !isSendingFromReserveToMemory ) {
+  if( (logsMap.find(pid) != logsMap.end() || tablaMem.find(pid) != tablaMem.end()) && !isSendingFromReserveToMemory ) {
     cout << "\tProcess with PID=" << pid << " already exists..." << endl;
     return -1;
   }
@@ -405,15 +443,20 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   cout << "Pages available: " << paginasDispM.size() << endl;
 
   while( n > sizeAvailable ) {
-      // Free memory sending it to reserve
-      // Take account of pageFaults that happened during this
-      // Only if process is being loaded for first time
-      if ( freeSpace(TECHNIQUE) > 0  && !isSendingFromReserveToMemory ) {
-        amountOfPageFaults++;
-      }
-      // Get size updated
-      sizeAvailable = getMSizeAvailable();
-      cout << "Real Memory Size Available: " << sizeAvailable << endl;
+    int errorNum;
+    // Free memory sending it to reserve
+    // Take account of pageFaults that happened during this
+    // Only if process is being loaded for first time
+    errorNum = freeSpace(TECHNIQUE);
+    if ( errorNum > 0  && !isSendingFromReserveToMemory ) {
+      amountOfPageFaults++;
+    } else if( errorNum < 0 ) { // Can't free space send error back
+      return -1;
+    }
+
+    // Get size updated
+    sizeAvailable = getMSizeAvailable();
+    cout << "Real Memory Size Available: " << sizeAvailable << endl;
   }
 
   // Enough memory was freed
@@ -476,6 +519,13 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   // Add page faults to process, if it has
   pi->pageFaults += amountOfPageFaults;
   pageFaults += amountOfPageFaults;
+
+
+  // If process is being created log it
+  if( !isSendingFromReserveToMemory ) {
+    ProcessStat *pStat = new ProcessStat(pid, tStamp);
+    logsMap[pid] = pStat;
+  }
 
   return 1;
 
@@ -627,15 +677,90 @@ int liberateProcess(int &pid) {
 
   ProcessInfo *process = tablaMem[pid];
   int bitRef = process->bitRef;
+  int errorNum;
+
 
   if ( bitRef == 0 ) { // Process is in Real Memory
-    return liberateRealMemoryProcess(process);
+    errorNum = liberateRealMemoryProcess(process);
   } else {             // Process is in Reserve Memory
-    return liberateReserveProcess(process);
+    errorNum = liberateReserveProcess(process);
   }
 
-  return -1;
+  if( errorNum < 0 ) // Mistake happened, return error
+    return -1;
+  else {  // Log the process that has just been removed
+    ProcessStat *pStat = logsMap[pid];
+    int turnaround = tStamp - pStat->processCreationTime;
+    pStat->turnaround = turnaround;
+    pStat->pageFaults = process->pageFaults;
+  }
 
+  return 1;
+
+}
+
+/*
+  Function which builds logsMap, which has the info required to eb printed
+  by each process.
+*/
+int buildStats(){
+
+  unordered_map<int, ProcessInfo*>::iterator itr = tablaMem.begin();
+
+  // Log every process which hasn't been liberated yet
+  while( itr != tablaMem.end() ) {
+
+    ProcessInfo *process = itr->second;
+    ProcessStat *pStat = logsMap[process->pid];
+    int turnaround = tStamp - pStat->processCreationTime;
+
+    pStat->turnaround = turnaround;
+    pStat->pageFaults = process->pageFaults;
+
+
+    ++itr;
+  }
+
+  return 1;
+}
+
+
+/*
+  Function which prints important stats.
+*/
+int printStats(){
+
+  unordered_map<int, ProcessStat*>::iterator itr = logsMap.begin();
+
+  int totalProcesses = logsMap.size();
+  double totalTurnaround = 0;
+  double turnaroundPromedio = 0;
+
+  // Print every process turnaround time
+  cout << "PROCESS(PID)\t\tFAULTS\t\tTURNAROUND" << endl;
+  while( itr != logsMap.end() ) {
+
+    ProcessStat *pStat = itr->second;
+    pStat->printStats();
+
+    totalTurnaround += double(pStat->turnaround);
+
+    ++itr;
+  }
+
+  // Print turnaround average
+  turnaroundPromedio = totalTurnaround/double(totalProcesses);
+  cout << "Average Turnaround: " << turnaroundPromedio << endl;
+
+  // Swapins and Swapouts
+  cout << "Total SwapIns: " << swapIns << endl;
+  cout << "Total SwapOuts: " << swapOuts << endl;
+  cout << "Total Page Faults: " << pageFaults << endl;
+
+  // Print efficiceny/rendimiento
+  // Create new variable which logs how many times processes were loaded or accessed
+
+  return 1;
 }
 
 int main(int argc, char *argv[]){
@@ -681,6 +806,17 @@ int main(int argc, char *argv[]){
       getline(cin, line);
       cout << "Comment(time=" << tStamp << "):" << line << endl;
       break;
+
+    case 'F' :  // Print stats gathered until now
+      buildStats();
+      cout << "############################################################" << endl;
+      printStats();
+      cout << "############################################################" << endl;
+
+      string tmp;
+      cout << "Type anything to proceed...";
+      cin >> tmp;
+
 
     }
 
