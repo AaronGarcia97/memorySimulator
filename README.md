@@ -2,9 +2,9 @@
 
 ## Wiki
 
-Example of how to run code with small test case:
+Default sizes:
 - Page Size = 16
-- Real Memory Size = 32
+- Real Memory Size = 2048
 - Reserve Memory Size = 4096
 
 NOTE:
