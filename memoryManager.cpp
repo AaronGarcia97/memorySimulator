@@ -127,7 +127,7 @@ void destroyMapPointers(){
   while( itr2 != logsMap.end()){
     ProcessStat *pStat = itr2->second;
     delete pStat;
-    ++itr;
+    ++itr2;
   }
 
   cout << "DONE..." << endl;
@@ -807,15 +807,17 @@ int main(int argc, char *argv[]){
       cout << "Comment(time=" << tStamp << "):" << line << endl;
       break;
 
-    case 'F' :  // Print stats gathered until now
+    case 'F' :  // Print stats gathered until now, and reset everything
       buildStats();
       cout << "############################################################" << endl;
       printStats();
       cout << "############################################################" << endl;
 
-      string tmp;
-      cout << "Type anything to proceed...";
+      char tmp = '';
+      cout << "Clear info and start again? (y/n)...";
       cin >> tmp;
+      if ( tmp == 'y' ) init();
+      break;
 
 
     }
