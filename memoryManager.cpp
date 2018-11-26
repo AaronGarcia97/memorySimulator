@@ -737,7 +737,7 @@ int printStats(){
   double turnaroundPromedio = 0;
 
   // Print every process turnaround time
-  cout << "PROCESS(PID)\t\tFAULTS\t\tTURNAROUND" << endl;
+  cout << "PID\t\tFAULTS\t\tTURNAROUND" << endl;
   while( itr != logsMap.end() ) {
 
     ProcessStat *pStat = itr->second;
@@ -817,6 +817,7 @@ int main(int argc, char *argv[]){
       cout << "Clear info and start again? (y/n)...";
       cin >> tmp;
       if ( tmp == 'y' ) init();
+      else action = 'E';
       break;
 
 
