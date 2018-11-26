@@ -813,7 +813,7 @@ int main(int argc, char *argv[]){
       printStats();
       cout << "############################################################" << endl;
 
-      char tmp = '';
+      char tmp;
       cout << "Clear info and start again? (y/n)...";
       cin >> tmp;
       if ( tmp == 'y' ) init();
