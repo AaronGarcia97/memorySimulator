@@ -228,15 +228,15 @@ int getPIDtoRemove(string s){
 
     if( process->bitRef == 0 ) { //If process is in real memory
 
-      if( pidMinTimestamp == -666 )
-        pidMinTimestamp = process->pid;
-      else
+      if( pidMinTimestamp == -666 ) pidMinTimestamp = process->pid;
+      else{
         minTimeStamp = isFifo ? tablaMem[pidMinTimestamp]->timeStamp : tablaMem[pidMinTimestamp]->timeStampLRU;
-
-      if( actualProcessTimeStamp < minTimeStamp ){
-        // Get PID of min timestamp
-        pidMinTimestamp = process->pid;
+        if( actualProcessTimeStamp < minTimeStamp ) {
+          // Get PID of min timestamp
+          pidMinTimestamp = process->pid;
+        }
       }
+
     }
     ++itr;
   }
@@ -614,6 +614,9 @@ int accessProcess(int &address, int &pid){
     }
 
   }
+
+  // Update LRU timestamp once accessed
+  process->timeStampLRU = tStamp;
 
   return 1;
 }
