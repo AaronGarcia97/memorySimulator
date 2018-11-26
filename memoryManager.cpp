@@ -513,8 +513,9 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   }
   cout << endl;
 
-  cout << "\tProcess " << pid << " sucesfully inserted." << endl;
   pi->printProcessInfo();
+
+  cout << "\tProcess " << pid << " sucesfully inserted." << endl;
 
   // Add page faults to process, if it has
   pi->pageFaults += amountOfPageFaults;
@@ -574,7 +575,7 @@ int sendProcessToMemory(ProcessInfo* &process){
   size = getUsedBytesOfProcess(process);
 
   if ( loadProcess(size, process->pid, true) > 0 ) { //Means process was sent succesfully to memory
-
+    process->printProcessInfo();
     // Update timestamp of process
     process->timeStamp = tStamp;
     return 1;
