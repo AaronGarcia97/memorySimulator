@@ -99,10 +99,7 @@ class ProcessInfo{
       cout << "\tPage Faults: " << this->pageFaults << endl;
       cout << "\tPages currently used(index): ";
       for( int i = 0; i < this->pagesUsed.size(); i++){
-        cout << pagesUsed[i] << ":";
-        if( this->bitRef == 0 ) cout << M[pagesUsed[i]];
-        else cout << S[pagesUsed[i]];
-        cout << " ";
+        cout << pagesUsed[i] << " ";
       }
       cout << endl;
     }
@@ -204,7 +201,7 @@ int getSSizeAvailable(){
  we need to return the difference of PAGE_SIZE - remainingBytes of Page.
 */
 int getUsedBytesOfPage(int& pageIndex){
-  cout << "pageIndex: " << pageIndex << " = " << M[pageIndex] << endl;
+  //cout << "pageIndex: " << pageIndex << " = " << M[pageIndex] << endl;
   return PAGE_SIZE - M[pageIndex];
 }
 
@@ -215,11 +212,6 @@ int getUsedBytesOfPage(int& pageIndex){
   (((Inefficient method)))
 */
 int getPIDtoRemove(string s){
-
-  if( s != "FIFO" && s != "LRU" ) {
-    cout << "Unexistent technique..." << endl;
-    return -1;
-  }
 
   bool isFifo;
   int actualProcessTimeStamp = 0;
@@ -236,15 +228,14 @@ int getPIDtoRemove(string s){
 
     if( process->bitRef == 0 ) { //If process is in real memory
 
-      if( pidMinTimestamp != -666 )
+      if( pidMinTimestamp == -666 )
+        pidMinTimestamp = process->pid;
+      else
         minTimeStamp = isFifo ? tablaMem[pidMinTimestamp]->timeStamp : tablaMem[pidMinTimestamp]->timeStampLRU;
 
-      if( pidMinTimestamp == -666 ) pidMinTimestamp = process->pid;
-
-      else if( actualProcessTimeStamp < minTimeStamp ){
+      if( actualProcessTimeStamp < minTimeStamp ){
         // Get PID of min timestamp
         pidMinTimestamp = process->pid;
-
       }
     }
     ++itr;
@@ -513,8 +504,9 @@ int loadProcess(int &n, int &pid, bool isSendingFromReserveToMemory){
   }
   cout << endl;
 
-  cout << "\tProcess " << pid << " sucesfully inserted." << endl;
   pi->printProcessInfo();
+
+  cout << "\tProcess " << pid << " sucesfully inserted." << endl;
 
   // Add page faults to process, if it has
   pi->pageFaults += amountOfPageFaults;
@@ -574,7 +566,7 @@ int sendProcessToMemory(ProcessInfo* &process){
   size = getUsedBytesOfProcess(process);
 
   if ( loadProcess(size, process->pid, true) > 0 ) { //Means process was sent succesfully to memory
-
+    process->printProcessInfo();
     // Update timestamp of process
     process->timeStamp = tStamp;
     return 1;
